@@ -7,6 +7,7 @@ require 'awesome_print'
 require 'gli'
 require 'httparty'
 require 'targetprocess'
+require 'terminal-table'
 
 module Targetprocess
   class CLI
@@ -22,7 +23,10 @@ module Targetprocess
     desc 'List stories'
     command :stories do |c|
       c.action do |_global, _opts, _args|
-        ap UserStory.all
+        puts Terminal::Table.new(
+          headings: %w(Id Name Owner State),
+          rows: UserStory.all.map(&:to_a),
+        )
       end
     end
   end
@@ -64,6 +68,10 @@ module Targetprocess
       @name = attrs['Name']
       @owner = attrs['Owner']['Login']
       @state = attrs['EntityState']['Name']
+    end
+
+    def to_a
+      [id, name, owner, state]
     end
   end
 end
