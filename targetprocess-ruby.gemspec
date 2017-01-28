@@ -9,8 +9,8 @@ Gem::Specification.new do |spec|
   spec.authors       = ["John Gray"]
   spec.email         = ["wopr42@gmail.com"]
 
-  spec.summary       = %q{TODO: Write a short summary, because Rubygems requires one.}
-  spec.description   = %q{TODO: Write a longer description or delete this line.}
+  spec.summary       = %q{CLI and Ruby bindings for Targetprocess}
+  spec.description   = %q{CLI and Ruby bindings for use with the Targetprocess Rest API v1}
   spec.homepage      = "TODO: Put your gem's website or public repo URL here."
 
   # Prevent pushing this gem to RubyGems.org. To allow pushes either set the 'allowed_push_host'
