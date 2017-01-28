@@ -1,0 +1,71 @@
+#!/usr/bin/env ruby
+
+$LOAD_PATH.unshift File.expand_path('../../lib', __FILE__)
+
+require 'active_support/inflector'
+require 'awesome_print'
+require 'gli'
+require 'httparty'
+require 'targetprocess'
+
+module Targetprocess
+  class CLI
+    extend GLI::App
+
+    program_desc 'Targetprocess CLI'
+
+    version Targetprocess::VERSION
+
+    subcommand_option_handling :normal
+    arguments :strict
+
+    desc 'List stories'
+    command :stories do |c|
+      c.action do |_global, _opts, _args|
+        ap UserStory.all
+      end
+    end
+  end
+
+  class Config
+    class << self
+      def base_uri
+        ENV.fetch('targetprocess_base_uri')
+      end
+
+      def password
+        ENV.fetch('targetprocess_password')
+      end
+
+      def username
+        ENV.fetch('targetprocess_username')
+      end
+    end
+  end
+
+  class UserStory
+    include HTTParty
+
+    base_uri Config.base_uri
+    format :json
+
+    class << self
+      def all
+        auth = { username: Config.username, password: Config.password }
+        get('/UserStories', { basic_auth: auth, query: {format: :json} })['Items']
+          .map { |data| new(data) }
+      end
+    end
+
+    attr_reader :id, :name, :owner, :state
+
+    def initialize(attrs = {})
+      @id = attrs['Id']
+      @name = attrs['Name']
+      @owner = attrs['Owner']['Login']
+      @state = attrs['EntityState']['Name']
+    end
+  end
+end
+
+exit Targetprocess::CLI.run(ARGV)
