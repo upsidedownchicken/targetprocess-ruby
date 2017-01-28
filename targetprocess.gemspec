@@ -1,11 +1,11 @@
 # coding: utf-8
 lib = File.expand_path('../lib', __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
-require 'targetprocess/ruby/version'
+require 'targetprocess/version'
 
 Gem::Specification.new do |spec|
-  spec.name          = "targetprocess-ruby"
-  spec.version       = Targetprocess::Ruby::VERSION
+  spec.name          = "targetprocess"
+  spec.version       = Targetprocess::VERSION
   spec.authors       = ["John Gray"]
   spec.email         = ["wopr42@gmail.com"]
 
