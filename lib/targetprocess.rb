@@ -8,30 +8,6 @@ require 'terminal-table'
 
 
 module Targetprocess
-  class CLI
-    extend GLI::App
-
-    program_desc 'Targetprocess CLI'
-
-    version Targetprocess::VERSION
-
-    subcommand_option_handling :normal
-    arguments :strict
-
-    desc 'List stories'
-    command :stories do |c|
-      c.flag :state, desc: 'State'
-      c.action do |_global, opts, _args|
-        params = { format: :json }
-        params[:where] = Filter::State.new(opts[:state]) if opts[:state]
-        puts Terminal::Table.new(
-          headings: %w(Id Name Owner State),
-          rows: UserStory.all(params).map(&:to_a),
-        )
-      end
-    end
-  end
-
   class Config
     class << self
       def base_uri
@@ -46,8 +22,43 @@ module Targetprocess
         ENV.fetch('targetprocess_password')
       end
 
+      def per_page
+        ENV.fetch('targetprocess_per_page', 25)
+      end
+
       def username
         ENV.fetch('targetprocess_username')
+      end
+    end
+  end
+
+  class CLI
+    extend GLI::App
+
+    program_desc 'Targetprocess CLI'
+
+    version Targetprocess::VERSION
+
+    subcommand_option_handling :normal
+    arguments :strict
+
+    desc 'List stories'
+    command :stories do |c|
+      c.flag :state, desc: 'State'
+      c.flag :page, desc: 'Page', default_value: 1, type: Integer
+      c.flag :per, desc: 'Per page', default_value: Config.per_page, type: Integer
+
+      c.action do |_global, opts, _args|
+        params = { format: :json }
+
+        params[:take] = opts[:per]
+        params[:skip] = params[:take] * (opts[:page] - 1)
+        params[:where] = Filter::State.new(opts[:state]) if opts[:state]
+
+        puts Terminal::Table.new(
+          headings: %w(Id Name Owner State),
+          rows: UserStory.all(params).map(&:to_a),
+        )
       end
     end
   end
