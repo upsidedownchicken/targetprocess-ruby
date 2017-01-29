@@ -74,9 +74,10 @@ module Targetprocess
 
     desc 'Manage stories'
     command :stories do |c|
-      c.flag :state, desc: 'State'
+      c.flag :owner, desc: 'Story owner login'
       c.flag :page, desc: 'Page', default_value: 1, type: Integer
       c.flag :per, desc: 'Per page', default_value: Config.per_page, type: Integer
+      c.flag :state, desc: 'State'
 
       c.default_desc 'List stories'
       c.action do |_global, opts, _args|
@@ -85,7 +86,10 @@ module Targetprocess
         params[:take] = clamp(opts[:per], MINIMUM_TAKE, MAXIMUM_TAKE)
         params[:skip] = params[:take] * (opts[:page] - 1)
 
-        params[:where] = Filter::State.new(opts[:state]) if opts[:state]
+        filters = []
+        filters << Filter::State.new(opts[:state]) if opts[:state]
+        filters << Filter::Owner.new(opts[:owner]) if opts[:owner]
+        params[:where] = Filter.and(filters)
 
         rows = UserStory.all(params).map(&:to_a)
 
@@ -120,6 +124,22 @@ module Targetprocess
   end
 
   module Filter
+    def self.and(filters)
+      filters.compact.map { |x| "(#{x})" }.join('and')
+    end
+
+    class Owner
+      attr_reader :login
+
+      def initialize(login)
+        @login = login
+      end
+
+      def to_s
+        "Owner.Login eq '#{login}'"
+      end
+    end
+
     class State
       attr_reader :name
 
