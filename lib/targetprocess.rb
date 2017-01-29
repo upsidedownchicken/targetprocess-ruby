@@ -35,6 +35,16 @@ module Targetprocess
   class CLI
     extend GLI::App
 
+    MINIMUM_TAKE = 1
+    MAXIMUM_TAKE = 1000
+
+    class << self
+      # http://joshfrankel.me/blog/2015/how-to/restrict-an-integer-to-a-specific-range-in-ruby/
+      def clamp(value, min, max)
+        [value, min, max].sort[1]
+      end
+    end
+
     program_desc 'Targetprocess CLI'
 
     version Targetprocess::VERSION
@@ -51,14 +61,18 @@ module Targetprocess
       c.action do |_global, opts, _args|
         params = { format: :json }
 
-        params[:take] = opts[:per]
+        params[:take] = clamp(opts[:per], MINIMUM_TAKE, MAXIMUM_TAKE)
         params[:skip] = params[:take] * (opts[:page] - 1)
+
         params[:where] = Filter::State.new(opts[:state]) if opts[:state]
+
+        rows = UserStory.all(params).map(&:to_a)
 
         puts Terminal::Table.new(
           headings: %w(Id Name Owner State),
-          rows: UserStory.all(params).map(&:to_a),
+          rows: rows,
         )
+        puts "Showing #{rows.size} records"
       end
     end
   end
