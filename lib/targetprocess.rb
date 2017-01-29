@@ -52,6 +52,26 @@ module Targetprocess
     subcommand_option_handling :normal
     arguments :strict
 
+    desc 'Manage projects'
+    command :projects do |c|
+      c.flag :page, desc: 'Page', default_value: 1, type: Integer
+      c.flag :per, desc: 'Per page', default_value: Config.per_page, type: Integer
+
+      c.action do |_global, opts, _args|
+        params = { where: "EntityType.name eq 'Project'" }
+        params[:take] = clamp(opts[:per], MINIMUM_TAKE, MAXIMUM_TAKE)
+        params[:skip] = params[:take] * (opts[:page] - 1)
+
+        rows = General.all(params).map(&:to_a)
+
+        puts Terminal::Table.new(
+          headings: %w(Id Name Owner),
+          rows: rows,
+        )
+        puts "Showing #{rows.size} records"
+      end
+    end
+
     desc 'Manage stories'
     command :stories do |c|
       c.flag :state, desc: 'State'
@@ -60,7 +80,7 @@ module Targetprocess
 
       c.default_desc 'List stories'
       c.action do |_global, opts, _args|
-        params = { format: :json }
+        params = {}
 
         params[:take] = clamp(opts[:per], MINIMUM_TAKE, MAXIMUM_TAKE)
         params[:skip] = params[:take] * (opts[:page] - 1)
@@ -113,67 +133,87 @@ module Targetprocess
     end
   end
 
-  class UserStory
+  class API
     class ErrorResponse < ArgumentError
       def initialize(code, msg)
         super([code, msg].join("\n"))
       end
     end
 
+    def get(path, params)
+      query = { format: :json }.merge(params).to_query
+      uri = URI.join(Config.base_uri, path)
+      uri.query = query
+      Config.logger.info uri.to_s
+
+      req = Net::HTTP::Get.new(uri)
+      req.basic_auth(Config.username, Config.password)
+
+      res = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) do |http|
+        http.request(req)
+      end
+
+      if res.is_a?(Net::HTTPSuccess)
+        JSON.parse(res.body)
+      else
+        raise ErrorResponse.new(res.code, res.body)
+      end
+    end
+
+    def post(path, params, body)
+      uri = URI.join(Config.base_uri, path)
+      uri.query = { format: :json }.merge(params).to_query
+      Config.logger.info uri.to_s
+      Config.logger.info body
+
+      headers = { 'Content-Type' => 'application/json' }
+      req = Net::HTTP::Post.new(uri, headers)
+      req.body = body
+      req.basic_auth(Config.username, Config.password)
+
+      res = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) do |http|
+        http.request(req)
+      end
+
+      if res.is_a?(Net::HTTPSuccess)
+        JSON.parse(res.body)
+      else
+        raise ErrorResponse.new(res.code, res.body)
+      end
+    end
+  end
+
+  class General
     class << self
       def all(opts = {})
-        query = { format: :json }.merge(opts)
+        API.new.get('Generals', opts)['Items'].map { |data| new(data) }
+      end
+    end
 
-        get('UserStories', query)['Items'].map { |data| new(data) }
+    attr_reader :id, :name, :owner
+
+    def initialize(attrs = {})
+      @id = attrs['Id']
+      @name = attrs['Name']
+      @owner = attrs['Owner']['Login']
+    end
+
+    def to_a
+      [id, name, owner]
+    end
+  end
+
+  class UserStory
+    class << self
+      def all(opts = {})
+        API.new.get('UserStories', opts)['Items'].map { |data| new(data) }
       end
 
       def create(params)
         body = params.to_json
-        res = post('UserStories', { format: :json }, body)
+        res = API.new.post('UserStories', {}, body)
 
         new(res)
-      end
-
-      def post(path, params, body)
-        uri = URI.join(Config.base_uri, path)
-        uri.query = params.to_query
-        Config.logger.info uri.to_s
-        Config.logger.info body
-
-        headers = { 'Content-Type' => 'application/json' }
-        req = Net::HTTP::Post.new(uri, headers)
-        req.body = body
-        req.basic_auth(Config.username, Config.password)
-
-        res = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) do |http|
-          http.request(req)
-        end
-
-        if res.is_a?(Net::HTTPSuccess)
-          JSON.parse(res.body)
-        else
-          raise ErrorResponse.new(res.code, res.body)
-        end
-      end
-
-      def get(path, params)
-        query = params.to_query
-        uri = URI.join(Config.base_uri, path)
-        uri.query = query
-        Config.logger.info uri.to_s
-
-        req = Net::HTTP::Get.new(uri)
-        req.basic_auth(Config.username, Config.password)
-
-        res = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) do |http|
-          http.request(req)
-        end
-
-        if res.is_a?(Net::HTTPSuccess)
-          JSON.parse(res.body)
-        else
-          raise ErrorResponse.new(res.code, res.body)
-        end
       end
     end
 
