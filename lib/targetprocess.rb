@@ -52,12 +52,13 @@ module Targetprocess
     subcommand_option_handling :normal
     arguments :strict
 
-    desc 'List stories'
+    desc 'Manage stories'
     command :stories do |c|
       c.flag :state, desc: 'State'
       c.flag :page, desc: 'Page', default_value: 1, type: Integer
       c.flag :per, desc: 'Per page', default_value: Config.per_page, type: Integer
 
+      c.default_desc 'List stories'
       c.action do |_global, opts, _args|
         params = { format: :json }
 
@@ -73,6 +74,27 @@ module Targetprocess
           rows: rows,
         )
         puts "Showing #{rows.size} records"
+      end
+
+      c.command :create do |d|
+        d.flag :name, desc: 'Name of the story', required: true
+        d.flag :project, desc: 'Project Id', type: Integer, required: true
+
+        d.action do |_global, opts, _args|
+          params = {
+            name: opts[:name],
+            project: {
+              id: opts[:project],
+            },
+          }
+
+          story = UserStory.create(params)
+
+          puts Terminal::Table.new(
+            headings: %w(Id Name Owner State),
+            rows: [story.to_a],
+          )
+        end
       end
     end
   end
@@ -103,6 +125,35 @@ module Targetprocess
         query = { format: :json }.merge(opts)
 
         get('UserStories', query)['Items'].map { |data| new(data) }
+      end
+
+      def create(params)
+        body = params.to_json
+        res = post('UserStories', { format: :json }, body)
+
+        new(res)
+      end
+
+      def post(path, params, body)
+        uri = URI.join(Config.base_uri, path)
+        uri.query = params.to_query
+        Config.logger.info uri.to_s
+        Config.logger.info body
+
+        headers = { 'Content-Type' => 'application/json' }
+        req = Net::HTTP::Post.new(uri, headers)
+        req.body = body
+        req.basic_auth(Config.username, Config.password)
+
+        res = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) do |http|
+          http.request(req)
+        end
+
+        if res.is_a?(Net::HTTPSuccess)
+          JSON.parse(res.body)
+        else
+          raise ErrorResponse.new(res.code, res.body)
+        end
       end
 
       def get(path, params)
