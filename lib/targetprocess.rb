@@ -15,7 +15,15 @@ module Targetprocess
       end
 
       def logger
-        @logger ||= ::Logger.new(STDOUT)
+        @logger ||= ::Logger.new(STDOUT).tap do |x|
+          levels = {
+            debug: Logger::DEBUG,
+            info: Logger::INFO,
+            warn: Logger::WARN,
+            error: Logger::ERROR,
+          }
+          x.level = levels[ENV.fetch('targetprocess_log_level', 'warn').to_sym]
+        end
       end
 
       def password
@@ -117,6 +125,20 @@ module Targetprocess
           puts Terminal::Table.new(
             headings: %w(Id Name Owner State),
             rows: [story.to_a],
+          )
+        end
+      end
+
+      c.command :next_states do |d|
+        d.flag :story, desc: 'Story Id', required: true
+
+        d.action do |_global, opts, _args|
+          story = UserStory.new('Id' => opts[:story])
+          next_states = story.next_states.map(&:to_a)
+
+          puts Terminal::Table.new(
+            headings: %w(Id Name),
+            rows: next_states,
           )
         end
       end
@@ -242,12 +264,33 @@ module Targetprocess
     def initialize(attrs = {})
       @id = attrs['Id']
       @name = attrs['Name']
-      @owner = attrs['Owner']['Login']
-      @state = attrs['EntityState']['Name']
+      @owner = attrs.dig('Owner', 'Login')
+      @state = attrs.dig('EntityState', 'Name')
+    end
+
+    def next_states
+      params = { include: '[EntityState[NextStates]]' }
+      #API.new.get("UserStories/#{id}", params)['Items'].map { |data| State.new(data) }
+      API.new.get("UserStories/#{id}", params).dig('EntityState', 'NextStates', 'Items').map do |data|
+        State.new(data)
+      end
     end
 
     def to_a
       [id, name, owner, state]
+    end
+
+    class State
+      attr_reader :id, :name
+
+      def initialize(attrs = {})
+        @id = attrs['Id']
+        @name = attrs['Name']
+      end
+
+      def to_a
+        [id, name]
+      end
     end
   end
 end
