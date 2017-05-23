@@ -74,6 +74,7 @@ module Targetprocess
 
     desc 'Manage stories'
     command :stories do |c|
+      c.flag :developer, desc: 'Developer'
       c.flag :owner, desc: 'Story owner login'
       c.flag :page, desc: 'Page', default_value: 1, type: Integer
       c.flag :per, desc: 'Per page', default_value: Config.per_page, type: Integer
@@ -89,6 +90,8 @@ module Targetprocess
         filters = []
         filters << Filter::State.new(opts[:state]) if opts[:state]
         filters << Filter::Owner.new(opts[:owner]) if opts[:owner]
+        filters << Filter::Developer.new(opts[:developer]) if opts[:developer]
+
         params[:where] = Filter.and(filters)
 
         rows = UserStory.all(params).map(&:to_a)
@@ -126,6 +129,18 @@ module Targetprocess
   module Filter
     def self.and(filters)
       filters.compact.map { |x| "(#{x})" }.join('and')
+    end
+
+    class Developer
+      attr_reader :login
+
+      def initialize(login)
+        @login = login
+      end
+
+      def to_s
+        "AssignedUser.Login eq '#{login}'"
+      end
     end
 
     class Owner
