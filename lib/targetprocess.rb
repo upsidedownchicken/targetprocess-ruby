@@ -94,10 +94,17 @@ module Targetprocess
 
         params[:where] = Filter.and(filters)
 
-        rows = UserStory.all(params).map(&:to_a)
+        rows = UserStory.all(params).map(&:to_a).each do |story|
+          if opts[:developer]
+            story << opts[:developer]
+          end
+        end
+
+        headings = %w(Id Name Owner State)
+        headings << 'Developer' if opts[:developer]
 
         puts Terminal::Table.new(
-          headings: %w(Id Name Owner State),
+          headings: headings,
           rows: rows,
         )
         puts "Showing #{rows.size} records"
