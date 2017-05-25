@@ -78,7 +78,7 @@ module Targetprocess
       c.flag :owner, desc: 'Story owner login'
       c.flag :page, desc: 'Page', default_value: 1, type: Integer
       c.flag :per, desc: 'Per page', default_value: Config.per_page, type: Integer
-      c.flag :sprint, desc: 'Sprint (Team Iteration)'
+      c.flag :sprint, desc: 'Sprint (Team Iteration)', default_value: Date.today.cweek - 2
       c.flag :state, desc: 'State'
 
       c.default_desc 'List stories'
