@@ -78,6 +78,7 @@ module Targetprocess
       c.flag :owner, desc: 'Story owner login'
       c.flag :page, desc: 'Page', default_value: 1, type: Integer
       c.flag :per, desc: 'Per page', default_value: Config.per_page, type: Integer
+      c.flag :sprint, desc: 'Sprint (Team Iteration)'
       c.flag :state, desc: 'State'
 
       c.default_desc 'List stories'
@@ -91,17 +92,24 @@ module Targetprocess
         filters << Filter::State.new(opts[:state]) if opts[:state]
         filters << Filter::Owner.new(opts[:owner]) if opts[:owner]
         filters << Filter::Developer.new(opts[:developer]) if opts[:developer]
+        filters << Filter::Sprint.new(opts[:sprint]) if opts[:sprint]
 
         params[:where] = Filter.and(filters)
+        params[:orderBy] = 'EntityState.Name'
 
         rows = UserStory.all(params).map(&:to_a).each do |story|
           if opts[:developer]
             story << opts[:developer]
           end
+
+          if opts[:sprint]
+            story << opts[:sprint]
+          end
         end
 
         headings = %w(Id Name Owner State)
         headings << 'Developer' if opts[:developer]
+        headings << 'Sprint' if opts[:sprint]
 
         puts Terminal::Table.new(
           headings: headings,
@@ -159,6 +167,18 @@ module Targetprocess
 
       def to_s
         "Owner.Login eq '#{login}'"
+      end
+    end
+
+    class Sprint
+      attr_reader :number
+
+      def initialize(number)
+        @number = number
+      end
+
+      def to_s
+        "TeamIteration.Name eq 'Sprint ##{number}'"
       end
     end
 
